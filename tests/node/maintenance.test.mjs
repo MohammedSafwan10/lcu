@@ -116,6 +116,19 @@ test('macOS releases have no app generations', async (t) => {
   assert.deepEqual(f.names('releases'), new Set(['0.5.0-aaaaaaaaaaaa']));
 });
 
+test('a release linked to an app outside the prefix is sized without the app', async (t) => {
+  const f = fixture(t);
+  const app = join(f.base, 'Applications/ChatGPT.app');
+  write(join(app, 'Contents/blob'), 'x'.repeat(4 * 1024 * 1024));
+  const current = f.release('0.5.0-aaaaaaaaaaaa', null, 200, { platform: 'darwin', app });
+  f.release('0.4.0-bbbbbbbbbbbb', null, 100, { platform: 'darwin', app });
+  f.current('0.5.0-aaaaaaaaaaaa');
+  const out = await f.run(current, ['--keep', '1', '--yes']);
+  const removed = out.split('\n').find(line => line.includes('Removed') && line.includes('0.4.0-bbbbbbbbbbbb'));
+  assert.match(removed, /\((?:\d+ B|[\d.]+ KiB)\)$/);
+  assert.ok(existsSync(join(app, 'Contents/blob')));
+});
+
 test('unexpected entries and a missing install marker are refused; usage errors exit 2', async (t) => {
   const f = fixture(t);
   f.generation(GEN);

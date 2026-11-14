@@ -30,9 +30,20 @@ export function human(size) {
   return '';
 }
 
+// Counts links themselves, never what they point at: a macOS release links the app in /Applications, and a
+// recursive readdirSync follows that link (prune reported 2.1 GiB per release instead of about 36 MiB).
 function treeSize(path) {
-  let total = lstatSync(path).size;
-  for (const name of readdirSync(path, { recursive: true })) total += lstat(join(path, name))?.size ?? 0;
+  let total = 0;
+  const pending = [path];
+  while (pending.length) {
+    const directory = pending.pop();
+    total += lstat(directory)?.size ?? 0;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const child = join(directory, entry.name);
+      if (entry.isDirectory()) pending.push(child);
+      else total += lstat(child)?.size ?? 0;
+    }
+  }
   return total;
 }
 
