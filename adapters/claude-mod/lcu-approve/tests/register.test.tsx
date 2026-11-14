@@ -659,3 +659,18 @@ test('in the Claude app with no surface attached the question card still asks', 
   expect(questions.length).toBe(1)
   expect(calls.filter(call => call.tool === 'choice').map(call => call.args.choice)).toEqual(['session'])
 })
+
+// T3 Code runs Claude Code through the Agent SDK (CLAUDE_CODE_ENTRYPOINT=t3-code) and may attach no surface:
+// it asks with the question card too, and its own card would answer "Allow once".
+test('in T3 Code with no surface attached the question card still asks', async ($, on) => {
+  const clock = mock.clock(on)
+  const opened: string[] = []
+  const calls = lcu(on, { ...DESKTOP, surfaces: [], placed: false, opened })
+  on('env.get', (_$: any, e: any) => ({ value: e.name === 'CLAUDE_CODE_ENTRYPOINT' ? 't3-code' : undefined }))
+  const questions = asker(on, clock, 'Allow this conversation')
+  const pending = $.classic.Elicitation(ELICITATION as any)
+  await until(clock, () => calls.some(call => call.tool === 'choice'))
+  expect(((await pending) as any).block).toBeDefined()
+  expect(questions.length).toBe(1)
+  expect(calls.filter(call => call.tool === 'choice').map(call => call.args.choice)).toEqual(['session'])
+})

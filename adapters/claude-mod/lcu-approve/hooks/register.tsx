@@ -39,6 +39,10 @@ const noticeSessions = new Map<string, { announced?: string; lastCheck?: number 
 
 const paneId = (approval: Approval) => `lcu-approval-${approval.id}`
 
+// Hosts that render AskUserQuestion as their own card and flag the thread as needing input: the Claude app,
+// and T3 Code (which runs Claude Code through the Agent SDK and may attach no surface).
+const QUESTION_CARD_ENTRYPOINTS = new Set(['claude-desktop', 't3-code'])
+
 export const register: Register = on => {
   on('classic.Elicitation', async ($, e, next) => {
     if (e.mcp_server_name !== SERVER) return next(e)
@@ -47,7 +51,8 @@ export const register: Register = on => {
     const surfaces = await $.session.surfaces()
     // The Claude app starts Claude Code with this entrypoint; with 2.1.304 its session can have no surface
     // attached yet when the approval arrives, and its own answer to the engine's form is a decline.
-    const inApp = (await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => undefined)) === 'claude-desktop'
+    const entrypoint = await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => undefined)
+    const inApp = typeof entrypoint === 'string' && QUESTION_CARD_ENTRYPOINTS.has(entrypoint)
     if (surfaces.length === 0 && !inApp && !(await placesPanes($))) return next(e)
 
     let approval: Approval
